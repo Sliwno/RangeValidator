@@ -17,7 +17,12 @@ class MyWindow(QWidget):
         super().__init__()
         self.setWindowTitle("CSV Import/Export")
         self.setFixedSize(300, 170)  # Fenstergröße
-        self.setWindowIcon(QIcon('C:\\Users\\HAJ-IT-N4\\Documents\\.Python\\PlzValidator\\data\\validierung.png'))
+        # Dynamische Pfadsetzung für das Icon
+        try:
+            window_icon_path = self.find_icon('validierung.png')
+            self.setWindowIcon(QIcon(window_icon_path))
+        except FileNotFoundError as e:
+            print(e)
 
         # Layout
         layout = QVBoxLayout()
@@ -48,7 +53,13 @@ class MyWindow(QWidget):
         self.blacklist_radio = QRadioButton("Blacklist", self)
         self.settings_button = QPushButton(self)
 
-        self.settings_button.setIcon(QIcon('C:\\Users\\HAJ-IT-N4\\Documents\\.Python\\PlzValidator\\data\\die-einstellungen.png'))
+        # Icon für den Einstellungsbutton
+        try:
+            settings_icon_path = self.find_icon('die-einstellungen.png')
+            self.settings_button.setIcon(QIcon(settings_icon_path))
+        except FileNotFoundError as e:
+            print(e)
+        self.settings_button.setIcon(QIcon(settings_icon_path))
         self.settings_button.setIconSize(QSize(16, 16))  # Hier kannst du die Größe des Icons festlegen
         self.settings_button.clicked.connect(self.show_settings)
         self.settings_button.setFixedSize(20, 20)
@@ -70,6 +81,26 @@ class MyWindow(QWidget):
 
         self.setLayout(layout)
 
+    def find_icon(self, filename):
+        # Aktuelles Verzeichnis
+        current_directory = os.path.dirname(os.path.abspath(__file__))
+        
+        # Elternverzeichnis
+        parent_directory = os.path.dirname(current_directory)
+        
+        # Pfade im aktuellen und Elternverzeichnis
+        current_path = os.path.join(current_directory, 'data', filename)
+        parent_path = os.path.join(parent_directory, 'data', filename)
+        
+        # Prüfe, ob das Icon im aktuellen Verzeichnis existiert
+        if os.path.exists(current_path):
+            self.current_path
+        # Prüfe, ob das Icon im Elternverzeichnis existiert
+        elif os.path.exists(parent_path):
+            self.parent_path
+        else:
+            raise FileNotFoundError(f"Icon '{filename}' nicht gefunden.")
+
     def import_csv_vorlage(self):
         try:
             # Öffnet einen Datei-Dialog zum Auswählen der ersten CSV-Datei
@@ -89,15 +120,15 @@ class MyWindow(QWidget):
                 
         except FileNotFoundError:
             logging.error("Die ausgewählte Datei wurde nicht gefunden.")
-            self.text_edit.setPlainText("Fehler: Die ausgewählte Datei wurde nicht gefunden.")
-            
+            QMessageBox.critical(self, "Fehler", "Die ausgewählte Datei wurde nicht gefunden.")
+
         except ValueError as e:
             logging.error("Fehler beim Konvertieren der CSV-Daten: %s", e)
-            self.text_edit.setPlainText("Fehler: Ungültige Daten in der CSV-Datei.")
-            
+            QMessageBox.critical(self, "Fehler", "Ungültige Daten in der CSV-Datei.")
+
         except Exception as e:
             logging.error("Ein unerwarteter Fehler ist aufgetreten: %s", e)
-            self.text_edit.setPlainText(f"Fehler: {str(e)}")
+            QMessageBox.critical(self, "Fehler", f"Ein unerwarteter Fehler ist aufgetreten: {str(e)}")
 
     def import_csv_range(self):
         try: 
@@ -134,54 +165,57 @@ class MyWindow(QWidget):
         except Exception as e:
             error_message = f"Fehler: {str(e)}"
             logging.error(error_message)
-            self.text_edit.setPlainText(error_message)  # Benutzerfeedback geben
+            QMessageBox.critical(self, "Fehler", error_message)  # Benutzerfeedback geben
 
     def export_csv(self):
-        export_path = self.read_export_path()
-        if export_path:
-            if self.whitelist_radio.isChecked():
-                # Prüfen, ob beide CSV-Dateien importiert wurden
-                if hasattr(self, 'vorlage_numbers') and hasattr(self, 'range_numbers'):
-                    # Filtere die Zahlen aus der Vorlage, die in der Range-Liste enthalten sind
-                    filtered_numbers = [num for num in self.vorlage_numbers 
-                                        if num in self.range_numbers]
-                    # Schreibe die gefilterten Zahlen in eine neue CSV-Datei
-                    with open(os.path.join(export_path, "filtered_plz.csv"),'w',newline='', encoding='utf-8') as csvfile:
-                        writer = csv.writer(csvfile)
-                        writer.writerow(["PLZ"]) # Schreibe die Spaltenüberschrift
-                        for num in filtered_numbers:
-                            writer.writerow([num])
+        try:   
+            export_path = self.read_export_path()
+            if export_path:
+                if self.whitelist_radio.isChecked():
+                    # Prüfen, ob beide CSV-Dateien importiert wurden
+                    if hasattr(self, 'vorlage_numbers') and hasattr(self, 'range_numbers'):
+                        # Filtere die Zahlen aus der Vorlage, die in der Range-Liste enthalten sind
+                        filtered_numbers = [num for num in self.vorlage_numbers 
+                                            if num in self.range_numbers]
+                        # Schreibe die gefilterten Zahlen in eine neue CSV-Datei
+                        with open(os.path.join(export_path, "filtered_plz.csv"),'w',newline='', encoding='utf-8') as csvfile:
+                            writer = csv.writer(csvfile)
+                            writer.writerow(["PLZ"]) # Schreibe die Spaltenüberschrift
+                            for num in filtered_numbers:
+                                writer.writerow([num])
 
-                    self.show_success_message("CSV-Datei erfolgreich erstellt!")
-                
-                else:
-                    logging.error("Fehler: CSV-Dateien nicht importiert.")
-                    self.text_edit.setPlainText("Fehler: CSV-Dateien nicht importiert.")
-
-            elif self.blacklist_radio.isChecked():
-                # Prüfen, ob beide CSV-Dateien importiert wurden
-                if hasattr(self, 'vorlage_numbers') and hasattr(self, 'range_numbers'):
-                    # Filtere die Zahlen aus der Vorlage, die nicht in der Range-Liste enthalten sind
-                    filtered_numbers = [num for num in self.vorlage_numbers 
-                                        if num not in self.range_numbers]
-                    # Schreibe die gefilterten Zahlen in eine neue CSV-Datei
-                    with open(os.path.join(export_path, "filtered_plz.csv"),'w',newline='', encoding='utf-8') as csvfile:
-                        writer = csv.writer(csvfile)
-                        writer.writerow(["PLZ"])  # Schreibe die Spaltenüberschrift
-                        for num in filtered_numbers:
-                            writer.writerow([num])
+                        self.show_success_message("CSV-Datei erfolgreich erstellt!")
                     
-                    self.show_success_message("CSV-Datei erfolgreich erstellt!")
-                
+                    else:
+                        logging.error("Fehler: CSV-Dateien nicht importiert.")
+                        self.text_edit.setPlainText("Fehler: CSV-Dateien nicht importiert.")
+
+                elif self.blacklist_radio.isChecked():
+                    # Prüfen, ob beide CSV-Dateien importiert wurden
+                    if hasattr(self, 'vorlage_numbers') and hasattr(self, 'range_numbers'):
+                        # Filtere die Zahlen aus der Vorlage, die nicht in der Range-Liste enthalten sind
+                        filtered_numbers = [num for num in self.vorlage_numbers 
+                                            if num not in self.range_numbers]
+                        # Schreibe die gefilterten Zahlen in eine neue CSV-Datei
+                        with open(os.path.join(export_path, "filtered_plz.csv"),'w',newline='', encoding='utf-8') as csvfile:
+                            writer = csv.writer(csvfile)
+                            writer.writerow(["PLZ"])  # Schreibe die Spaltenüberschrift
+                            for num in filtered_numbers:
+                                writer.writerow([num])
+                        
+                        self.show_success_message("CSV-Datei erfolgreich erstellt!")
+                    
+                    else:
+                        logging.error("Fehler: CSV-Dateien nicht importiert.")
+                        self.text_edit.setPlainText("Fehler: CSV-Dateien nicht importiert.")
                 else:
-                    logging.error("Fehler: CSV-Dateien nicht importiert.")
-                    self.text_edit.setPlainText("Fehler: CSV-Dateien nicht importiert.")
+                    logging.error("Fehler: Filtermethode nicht ausgewählt.")
+                    self.text_edit.setPlainText("Fehler: Filtermethode nicht ausgewählt.")
             else:
-                logging.error("Fehler: Filtermethode nicht ausgewählt.")
-                self.text_edit.setPlainText("Fehler: Filtermethode nicht ausgewählt.")
-        else:
-            logging.error("Exportpfad nicht festgelegt.")
-            self.text_edit.setPlainText("Fehler: Exportpfad nicht festgelegt.")   
+                logging.error("Exportpfad nicht festgelegt.")
+                self.text_edit.setPlainText("Fehler: Exportpfad nicht festgelegt.")   
+        except Exception as e:
+            QMessageBox.critical(self, "Fehler", f"Fehler beim Lesen der Datei: {str(e)}")
 
     def show_success_message(self, message):
         msg_box = QMessageBox()
@@ -284,13 +318,20 @@ class MyWindow(QWidget):
             self.path_input.setText(dir_path)
 
     def save_export_path(self, dialog):
-        # Speichere den Exportpfad in der Datenbank
         export_path = self.path_input.text()
 
         if export_path:
             cursor = self.conn.cursor()
-            # Füge den Pfad in die Tabelle ein oder aktualisiere den existierenden Eintrag
-            cursor.execute("INSERT OR REPLACE INTO settings (id, export_path) VALUES (1, ?)", (export_path,))
+            cursor.execute("SELECT COUNT(*) FROM settings WHERE id = 1")
+            exists = cursor.fetchone()[0]
+
+            if exists:
+                # Aktualisiere den vorhandenen Pfad
+                cursor.execute("UPDATE settings SET export_path = ? WHERE id = 1", (export_path,))
+            else:
+                # Füge den Pfad als neuen Eintrag hinzu
+                cursor.execute("INSERT INTO settings (id, export_path) VALUES (1, ?)", (export_path,))
+
             self.conn.commit()
         dialog.accept()
 
