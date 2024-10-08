@@ -2,13 +2,11 @@ import sys
 import logging
 import os
 import csv
+from datetime import datetime
+import sqlite3
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QFileDialog, QRadioButton, QLabel, QDialog, QLineEdit, QMessageBox
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import QSize
-from datetime import datetime
-import subprocess
-import sqlite3
-
 
 # Konfigurieren des Loggings
 logging.basicConfig(level=logging.ERROR,  # Setzt das Log-Level auf ERROR
@@ -93,25 +91,12 @@ class MyWindow(QWidget):
         self.setLayout(layout)
 
     def find_icon(self, filename):
-        # Aktuelles Verzeichnis
-        current_directory = os.path.dirname(os.path.abspath(__file__))
-        
-        # Elternverzeichnis
-        parent_directory = os.path.dirname(current_directory)
-        
-        # Pfade im aktuellen und Elternverzeichnis
-        current_path = os.path.join(current_directory, 'data', filename)
-        parent_path = os.path.join(parent_directory, 'data', filename)
-        
-        # Prüfe, ob das Icon im aktuellen Verzeichnis existiert
-        if os.path.exists(current_path):
-            return current_path
-
-        # Prüfe, ob das Icon im Elternverzeichnis existiert
-        elif os.path.exists(parent_path):
-            return parent_path
-        else:
-            raise FileNotFoundError(f"Icon '{filename}' nicht gefunden.")
+        directory = os.walk(os.getcwd())
+        for root, _, files in directory:
+            for file in files:
+                if file == filename:
+                    return os.path.join(root, file)
+        raise FileNotFoundError(f"Icon '{filename}' nicht gefunden.")
             
     def import_csv_vorlage(self):
         try:
@@ -372,28 +357,13 @@ class MyWindow(QWidget):
             self.conn.commit()
         dialog.accept()
 
-def install_missing_libraries():
-    # Liste der erforderlichen Libraries
-    required_libraries = [
-        'PyQt5',
-    ]
-    
-    for lib in required_libraries:
-        try:
-            __import__(lib)  # Versucht, das Modul zu importieren
-        except ImportError:
-            print(f"{lib} ist nicht installiert. Versuche es zu installieren...")
-            subprocess.check_call([sys.executable, "-m", "pip", "install", lib])
-
-    print("Alle benötigten Bibliotheken sind installiert.")
-
-
-def main():
-    install_missing_libraries()
+def main():    
     app = QApplication(sys.argv)
     window = MyWindow()
     window.show()
+    input("Press Enter to continue...")
     sys.exit(app.exec_())
+    input("Press Enter to continue...")
 
 if __name__ == "__main__":
     main()
