@@ -274,6 +274,9 @@ class MyWindow(QWidget):
     def initialize_database(self):
         # Pfad zur Datenbank
         db_path = self.find_db() 
+        if not db_path:
+            db_path = os.path.join(os.getcwd(), 'settings.db')
+            os.path.exists(db_path)
 
         # Verbindung zur Datenbank herstellen und die Tabelle "settings" erstellen, falls sie nicht existiert
         self.conn = sqlite3.connect(db_path)
@@ -293,6 +296,7 @@ class MyWindow(QWidget):
             for file in files:
                 if file == ('settings.db'):
                     return os.path.join(root, file)
+                
 
     def show_settings(self):
         # Erstelle ein neues Dialog-Fenster
