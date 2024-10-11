@@ -22,7 +22,7 @@ class MyWindow(QWidget):
 
         # Dynamische Pfadsetzung für das Icon
         try:
-            window_icon_path = self.find_icon('validierung.png')
+            window_icon_path = self.find_icon('validierung.ico')
             self.setWindowIcon(QIcon(window_icon_path))
         except FileNotFoundError as e:
             print(e)
@@ -58,17 +58,13 @@ class MyWindow(QWidget):
 
         # Icon für den Einstellungsbutton
         try:
-            settings_icon_path = self.find_icon('die-einstellungen.png')
+            settings_icon_path = self.find_icon('die-einstellungen.ico')
             self.settings_button.setIcon(QIcon(settings_icon_path))
+            self.settings_button.setIconSize(QSize(16, 16))
         except FileNotFoundError as e:
             print(e)
-
-        if settings_icon_path:    
-            self.settings_button.setIcon(QIcon(settings_icon_path))
-            self.settings_button.setIconSize(QSize(16, 16))  # Hier kannst du die Größe des Icons festlegen
-        else:
             self.settings_button.setText("Einstellungen")
-
+  
         self.settings_button.clicked.connect(self.show_settings)
         self.settings_button.setFixedSize(20, 20)
 
@@ -91,13 +87,18 @@ class MyWindow(QWidget):
         self.setLayout(layout)
 
     def find_icon(self, filename):
-        directory = os.walk(os.getcwd())
-        for root, _, files in directory:
-            for file in files:
-                if file == filename:
-                    return os.path.join(root, file)
+        if getattr(sys, 'frozen', False):
+            # Wenn die Anwendung gebündelt ist (nach dem Build mit PyInstaller)
+            bundle_dir = sys._MEIPASS
+            return os.path.join(bundle_dir, filename)
+
+        else:
+            directory = os.walk(os.getcwd())
+            for root, _, files in directory:
+                for file in files:
+                    if file == filename:
+                        return os.path.join(root, file)
         
-            
     def import_csv_vorlage(self):
         try:
             # Öffnet einen Datei-Dialog zum Auswählen der ersten CSV-Datei
@@ -258,9 +259,10 @@ class MyWindow(QWidget):
     
     def initialize_database(self):
         # Pfad zur Datenbank
-        db_path = self.find_db() 
+        filename='settings.db'
+        db_path = self.find_db(filename) 
         if not db_path:
-            db_path = os.path.join(os.getcwd(), 'settings.db')
+            db_path = os.path.join(os.getcwd(), filename)
             os.path.exists(db_path)
 
         # Verbindung zur Datenbank herstellen und die Tabelle "settings" erstellen, falls sie nicht existiert
@@ -274,15 +276,19 @@ class MyWindow(QWidget):
                         )''')
         self.conn.commit()
 
-    def find_db(self):
+    def find_db(self, filename):
+        if getattr(sys, 'frozen', False):
+            # Wenn die Anwendung gebündelt ist (nach dem Build mit PyInstaller)
+            bundle_dir = sys._MEIPASS
+            return os.path.join(bundle_dir, filename)
+        
         directory = os.walk(os.getcwd())
         for root, _, files in directory:
             print(root)
             for file in files:
-                if file == ('settings.db'):
+                if file == (filename):
                     return os.path.join(root, file)
                 
-
     def show_settings(self):
         # Erstelle ein neues Dialog-Fenster
         dialog = QDialog(self)
