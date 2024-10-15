@@ -1,3 +1,4 @@
+import re
 import sys
 import logging
 import os
@@ -7,6 +8,9 @@ import sqlite3
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QFileDialog, QRadioButton, QLabel, QDialog, QLineEdit, QMessageBox
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import QSize
+
+
+# 
 
 # Konfigurieren des Loggings
 logging.basicConfig(level=logging.ERROR,  # Setzt das Log-Level auf ERROR
@@ -42,7 +46,7 @@ class MyWindow(QWidget):
         layout.addWidget(self.label_btn1)
 
         # Button zum Importieren der zweiten CSV-Datei
-        self.import_button_2 = QPushButton("CSV zu Filtern", self)
+        self.import_button_2 = QPushButton("CSV Filtern", self)
         self.import_button_2.clicked.connect(self.import_csv_range)
         layout.addWidget(self.import_button_2)
 
@@ -104,27 +108,47 @@ class MyWindow(QWidget):
             # Öffnet einen Datei-Dialog zum Auswählen der ersten CSV-Datei
             file_dialog = QFileDialog(self)
             file_path, _ = file_dialog.getOpenFileName(self, "CSV PLZ-Vorlage auswählen", "", "CSV-Dateien (*.csv)")
-            self.label_btn1.setText(f"Pfad: {file_path}")
-
+        
             if file_path:
+                PLZ_area = re.compile(r'^\d{1,5}$')
+                
                 # Hier kann der Code zum Einlesen der ersten CSV-Datei platziert werden
                 print(f"CSV 1 importiert: {file_path}")
                 reader = self.read_csv(file_path)
                 
                 self.vorlage_numbers = []
+                # Jede zeile der CSV-Datei überprüfen, ob die PLZ im richtigen Format ist 
                 for item in reader:
+                    if not PLZ_area.match(item[0]):
+                        print("CSV-Datei enthält ungültige PLZ-Formate.")
+                        QMessageBox.critical(self, "Fehler", "Ungültiges PLZ-Format.")
+                        return
+                exception = False
+                for item in reader: 
                     try:
                         self.vorlage_numbers.append(int(item[0]))
                 
+                
                     except ValueError as ve:
                         error_message = f"Fehler beim Verarbeiten des Eintrags '{item[0]}'\nERROR: {ve} \n\nVerarbeitung wird fortgesetzt."
+                        exception = True
                         logging.error(error_message)
-                        QMessageBox.critical(self,"Verarbeitungsfehler",error_message)  # Benutzerfeedback geben
-                        continue  # Weiter mit dem nächsten Eintrag
 
-                self.vorlage_numbers = list(set(self.vorlage_numbers))  # Duplikate entfernen
-                self.vorlage_numbers.sort()  # Liste sortieren
-                    
+                        # Weiter mit dem nächsten Eintrag
+                        continue  
+                
+                if(exception):
+                    QMessageBox.critical(self, "Fehler", "Einige Einträge konnten nicht verarbeitet werden.")
+                    exception = False
+                # Duplikate entfernen
+                self.vorlage_numbers = list(set(self.vorlage_numbers))  
+               
+                # Liste sortieren
+                self.vorlage_numbers.sort()  
+                self.label_btn1.setText(f"Pfad: {file_path}")
+
+            else: 
+                raise FileNotFoundError        
         except FileNotFoundError:
             logging.error("Die ausgewählte Datei wurde nicht gefunden.")
             QMessageBox.critical(self, "Fehler", "Die ausgewählte Datei wurde nicht gefunden.")
@@ -141,8 +165,7 @@ class MyWindow(QWidget):
         try: 
             # Öffnet einen Datei-Dialog zum Auswählen der zweiten CSV-Datei
             file_dialog = QFileDialog(self)
-            file_path, _ = file_dialog.getOpenFileName(self, "CSV PLZ-Range auswählen", "", "CSV-Dateien (*.csv)")
-            self.label_btn2.setText(f"Pfad: {file_path}")
+            file_path, _ = file_dialog.getOpenFileName(self, "CSV PLZ-Range auswählen", "", "CSV-Dateien (*.csv)")        
 
             if file_path:
                 print(f"CSV 2 importiert: {file_path}")
@@ -154,24 +177,33 @@ class MyWindow(QWidget):
                     try:
                         # Prüfen, ob der Eintrag ein Bereich ist (d.h. ob er einen Bindestrich enthält)
                         if "-" in item[0]:
-                            start, end = map(int, item[0].split("-"))  # Split in Start und Ende
-                            self.range_numbers.extend(range(start, end + 1))  # Den Bereich zur Liste hinzufügen
+                            # Split in Start und Ende
+                            start, end = map(int, item[0].split("-"))  
+
+                            # Den Bereich zur Liste hinzufügen
+                            self.range_numbers.extend(range(start, end + 1))  
                         else:
                             # Wenn es sich um eine einzelne Zahl handelt, füge sie direkt hinzu
                             self.range_numbers.append(int(item[0]))
                     except ValueError as ve:
                         error_message = f"Fehler beim Verarbeiten des Eintrags '{item[0]}': {ve}"
                         logging.error(error_message)
-                        QMessageBox.critical(self,"Verarbeitungsfehler", f"{error_message}")  # Benutzerfeedback geben
-                        continue  # Weiter mit dem nächsten Eintrag
+                        QMessageBox.critical(self,"Verarbeitungsfehler", f"{error_message}")  
+                        
+                        # Weiter mit dem nächsten Eintrag
+                        continue  
+                
+                # Duplikate entfernen
+                self.range_numbers = list(set(self.range_numbers))  
 
-                self.range_numbers = list(set(self.range_numbers))  # Duplikate entfernen
-                self.range_numbers.sort()  # Liste sortieren
+                # Liste sortieren
+                self.range_numbers.sort()  
 
+                self.label_btn2.setText(f"Pfad: {file_path}")
         except Exception as e:
             error_message = f"Fehler: {str(e)}"
             logging.error(error_message)
-            QMessageBox.critical(self, "Fehler: ", error_message)  # Benutzerfeedback geben
+            QMessageBox.critical(self, "Fehler: ", error_message)  
 
     def export_csv(self):
         try:   
@@ -199,8 +231,7 @@ class MyWindow(QWidget):
         # Prüfen, ob beide CSV-Dateien importiert wurden
         if hasattr(self, 'vorlage_numbers') and hasattr(self, 'range_numbers'):
             # Filtere die Zahlen aus der Vorlage, die in der Range-Liste enthalten sind
-            self.filtered_numbers = [num for num in self.vorlage_numbers 
-                                if num in self.range_numbers]     
+            self.filtered_numbers = [num for num in self.vorlage_numbers if num in self.range_numbers]     
         else:
             logging.error("Fehler: CSV-Dateien nicht importiert.")
             QMessageBox.critical(self, f"Fehler", "CSV-Dateien nicht importiert.")
@@ -209,8 +240,7 @@ class MyWindow(QWidget):
         # Prüfen, ob beide CSV-Dateien importiert wurden
         if hasattr(self, 'vorlage_numbers') and hasattr(self, 'range_numbers'):
             # Filtere die Zahlen aus der Vorlage, die nicht in der Range-Liste enthalten sind
-            self.filtered_numbers = [num for num in self.vorlage_numbers 
-                                if num not in self.range_numbers]
+            self.filtered_numbers = [num for num in self.vorlage_numbers if num not in self.range_numbers]
         else:
             logging.error("Fehler: CSV-Dateien nicht importiert.")
             QMessageBox.critical(self,f"Fehler","CSV-Dateien nicht importiert.")
@@ -229,7 +259,7 @@ class MyWindow(QWidget):
             writer.writerow(["PLZ"])  # Schreibe die Spaltenüberschrift
             for num in self.filtered_numbers:
                 writer.writerow([num])
-            self.show_success_message("CSV-Datei erfolgreich erstellt!")
+        self.show_success_message("CSV-Datei erfolgreich erstellt!")
 
     def show_success_message(self, message):
         msg_box = QMessageBox()
@@ -277,11 +307,6 @@ class MyWindow(QWidget):
         self.conn.commit()
 
     def find_db(self, filename):
-        if getattr(sys, 'frozen', False):
-            # Wenn die Anwendung gebündelt ist (nach dem Build mit PyInstaller)
-            bundle_dir = sys._MEIPASS
-            return os.path.join(bundle_dir, filename)
-        
         directory = os.walk(os.getcwd())
         for root, _, files in directory:
             print(root)
