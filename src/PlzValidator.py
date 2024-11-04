@@ -9,9 +9,6 @@ from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPu
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import QSize
 
-
-# 
-
 # Konfigurieren des Loggings
 logging.basicConfig(level=logging.ERROR,  # Setzt das Log-Level auf ERROR
                     format='%(asctime)s - %(levelname)s - %(message)s')  # Format der Log-Nachrichten
@@ -21,8 +18,8 @@ class MyWindow(QWidget):
         super().__init__()
         self.setWindowTitle("CSV Import/Export")
        
-        # Fenstergröße
-        self.setFixedSize(300, 170)  
+        # Stellt die Fenstergröße ein und setzt das Fenster zentriert auf dem Bildschirm
+        self.setFixedSize(330, 180)  
 
         # Dynamische Pfadsetzung für das Icon
         try:
@@ -111,7 +108,8 @@ class MyWindow(QWidget):
         
             if file_path:
                 PLZ_area = re.compile(r'^\d{1,5}$')
-                
+                exception = False
+
                 # Hier kann der Code zum Einlesen der ersten CSV-Datei platziert werden
                 print(f"CSV 1 importiert: {file_path}")
                 reader = self.read_csv(file_path)
@@ -123,17 +121,15 @@ class MyWindow(QWidget):
                         print("CSV-Datei enthält ungültige PLZ-Formate.")
                         QMessageBox.critical(self, "Fehler", "Ungültiges PLZ-Format.")
                         return
-                exception = False
+                
                 for item in reader: 
                     try:
                         self.vorlage_numbers.append(int(item[0]))
-                
                 
                     except ValueError as ve:
                         error_message = f"Fehler beim Verarbeiten des Eintrags '{item[0]}'\nERROR: {ve} \n\nVerarbeitung wird fortgesetzt."
                         exception = True
                         logging.error(error_message)
-
                         # Weiter mit dem nächsten Eintrag
                         continue  
                 
@@ -145,10 +141,11 @@ class MyWindow(QWidget):
                
                 # Liste sortieren
                 self.vorlage_numbers.sort()  
+                
                 self.label_btn1.setText(f"Pfad: {file_path}")
-
             else: 
-                raise FileNotFoundError        
+                return  
+                
         except FileNotFoundError:
             logging.error("Die ausgewählte Datei wurde nicht gefunden.")
             QMessageBox.critical(self, "Fehler", "Die ausgewählte Datei wurde nicht gefunden.")
@@ -198,8 +195,18 @@ class MyWindow(QWidget):
 
                 # Liste sortieren
                 self.range_numbers.sort()  
-
                 self.label_btn2.setText(f"Pfad: {file_path}")
+            else:
+                return
+
+        except FileNotFoundError:
+            logging.error("Die ausgewählte Datei wurde nicht gefunden.")
+            QMessageBox.critical(self, "Fehler", "Die ausgewählte Datei wurde nicht gefunden.")
+
+        except ValueError as e:
+            logging.error("Fehler beim Konvertieren der CSV-Daten: %s", e)
+            QMessageBox.critical(self, "Fehler", "Ungültige Daten in der CSV-Datei.")
+
         except Exception as e:
             error_message = f"Fehler: {str(e)}"
             logging.error(error_message)
@@ -286,7 +293,17 @@ class MyWindow(QWidget):
                 return csv_data
         except Exception as e:
             QMessageBox.critical(self,"Fehler",f"beim Lesen der Datei: {str(e)}")
-    
+
+    def read_export_path(self):
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT export_path FROM settings WHERE id = 1")  # Hier id entsprechend anpassen
+        result = cursor.fetchone()  # Einzeln oder mit fetchall() für mehrere Zeilen
+
+        if result:
+            return result[0]  # Gibt den Exportpfad zurück, der in der ersten Spalte steht
+        else:
+            return None  # Gibt None zurück, wenn kein Ergebnis gefunden wurde
+
     def initialize_database(self):
         # Pfad zur Datenbank
         filename='settings.db'
@@ -353,16 +370,6 @@ class MyWindow(QWidget):
         if dialog.exec_():
             export_path = self.path_input.text()
             print(f"Exportpfad festgelegt: {export_path}")
-
-    def read_export_path(self):
-        cursor = self.conn.cursor()
-        cursor.execute("SELECT export_path FROM settings WHERE id = 1")  # Hier id entsprechend anpassen
-        result = cursor.fetchone()  # Einzeln oder mit fetchall() für mehrere Zeilen
-
-        if result:
-            return result[0]  # Gibt den Exportpfad zurück, der in der ersten Spalte steht
-        else:
-            return None  # Gibt None zurück, wenn kein Ergebnis gefunden wurde
 
     def browse_export_path(self):
         # Datei-Dialog zum Auswählen eines Verzeichnisses
